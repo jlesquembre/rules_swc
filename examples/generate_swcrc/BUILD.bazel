@@ -1,4 +1,5 @@
 load("@aspect_bazel_lib//lib:testing.bzl", "assert_json_matches")
+load("@aspect_rules_js//js:defs.bzl", "js_test")
 load("@aspect_rules_swc//swc:defs.bzl", "swc")
 load("@npm//:defs.bzl", "npm_link_all_packages")
 load("@npm//examples/generate_swcrc:tsconfig-to-swcconfig/package_json.bzl", tsconfig_to_swcconfig = "bin")
@@ -19,8 +20,13 @@ tsconfig_to_swcconfig.t2s(
 # Demonstrate that it works
 swc(
     name = "compile",
-    srcs = ["some.ts"],
+    srcs = glob(["lib/**", "app/**"]),
+
+    # Generates incorrect import path (see generated app/index.js)
     swcrc = ".swcrc",
+
+    # Generates correct import path
+    # swcrc = "my_swcrc",
 )
 
 # Verify that our options got passed through
@@ -30,4 +36,17 @@ assert_json_matches(
     file2 = "tsconfig.json",
     filter1 = ".jsc.target",
     filter2 = ".compilerOptions.target",
+)
+
+
+genrule(
+    name = "generate_package_json",
+    outs = ["package.json"],
+    cmd = """echo '{"type": "module"}' > $@ """,
+)
+
+js_test(
+    name = "test_compile",
+    data = [":compile", ":generate_package_json"],
+    entry_point = "app/main.js",
 )
